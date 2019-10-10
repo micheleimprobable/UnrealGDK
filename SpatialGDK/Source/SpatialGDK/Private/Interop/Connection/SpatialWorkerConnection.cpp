@@ -218,6 +218,7 @@ void USpatialWorkerConnection::ConnectToReceptionist(bool bConnectAsClient)
 	Worker_Alpha_CompressionParameters EnableCompressionParams{};
 	ConnectionParams.network.modular_udp.upstream_compression = &EnableCompressionParams;
 	ConnectionParams.network.modular_udp.downstream_compression = nullptr;
+	ConnectionParams.network.modular_udp.security_type = WORKER_NETWORK_SECURITY_TYPE_DTLS;
 	ConnectionParams.enable_dynamic_components = true;
 	// end TODO
 
@@ -271,6 +272,7 @@ void USpatialWorkerConnection::ConnectToLocator()
 	Worker_Alpha_CompressionParameters EnableCompressionParams{};
 	ConnectionParams.network.modular_udp.upstream_compression = &EnableCompressionParams;
 	ConnectionParams.network.modular_udp.downstream_compression = nullptr;
+	ConnectionParams.network.modular_udp.security_type = WORKER_NETWORK_SECURITY_TYPE_DTLS;
 	FString ProtocolLogDir = FPaths::ConvertRelativePathToFull(FPaths::ProjectLogDir()) + TEXT("protocol-log-");
 	ConnectionParams.protocol_logging.log_prefix = TCHAR_TO_UTF8(*ProtocolLogDir);
 
