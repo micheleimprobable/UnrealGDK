@@ -215,6 +215,7 @@ void USpatialWorkerConnection::ConnectToReceptionist(bool bConnectAsClient)
 	ConnectionParams.network.connection_type = ReceptionistConfig.LinkProtocol;
 	ConnectionParams.network.use_external_ip = ReceptionistConfig.UseExternalIp;
 	ConnectionParams.network.tcp.multiplex_level = ReceptionistConfig.TcpMultiplexLevel;
+	ConnectionParams.network.modular_udp.security_type = WORKER_NETWORK_SECURITY_TYPE_DTLS;
 
 	ConnectionParams.enable_dynamic_components = true;
 	// end TODO
@@ -266,6 +267,7 @@ void USpatialWorkerConnection::ConnectToLocator()
 	ConnectionParams.network.connection_type = LocatorConfig.LinkProtocol;
 	ConnectionParams.network.use_external_ip = LocatorConfig.UseExternalIp;
 	ConnectionParams.network.tcp.multiplex_level = LocatorConfig.TcpMultiplexLevel;
+	ConnectionParams.network.modular_udp.security_type = WORKER_NETWORK_SECURITY_TYPE_DTLS;
 
 	// We want the bridge to worker messages to be compressed; not the worker to bridge messages.
 	// Worker SDK 14.1.0 has a bug where upstream and downstream compression are swapped so we set the upstream settings to use compression.
