@@ -4,6 +4,8 @@
 
 #include "Schema/Interest.h"
 #include "Interop/SpatialClassInfoManager.h"
+#include "Interop/SpatialSender.h"
+#include "EngineClasses/SpatialNetDriver.h"
 
 void UActorInterestComponent::CreateQueries(const USpatialClassInfoManager& ClassInfoManager, const SpatialGDK::QueryConstraint& AdditionalConstraints, TArray<SpatialGDK::Query>& OutQueries) const
 {
@@ -37,4 +39,11 @@ void UActorInterestComponent::CreateQueries(const USpatialClassInfoManager& Clas
 		}
 	}
 
+}
+
+void UActorInterestComponent::refresh() {
+    auto* const owner = this->GetOwner();
+    USpatialNetDriver* const net_driver = Cast<USpatialNetDriver>(GetWorld()->GetNetDriver());
+    USpatialSender* const sender = net_driver->Sender;
+    sender->UpdateInterestComponent(owner);
 }

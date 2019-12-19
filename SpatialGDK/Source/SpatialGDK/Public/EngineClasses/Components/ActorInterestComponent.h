@@ -40,4 +40,5 @@ public:
 	UPROPERTY(BlueprintReadonly, EditDefaultsOnly, Category = "Interest")
 	TArray<FQueryData> Queries;
 
+	void refresh();
 };
