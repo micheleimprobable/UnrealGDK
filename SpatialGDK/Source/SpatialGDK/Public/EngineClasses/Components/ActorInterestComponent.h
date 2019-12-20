@@ -23,7 +23,7 @@ class SPATIALGDK_API UActorInterestComponent final : public UActorComponent
 	GENERATED_BODY()
 
 public:
-	UActorInterestComponent() = default;
+	UActorInterestComponent();
 	~UActorInterestComponent() = default;
 
 	void CreateQueries(const USpatialClassInfoManager& ClassInfoManager, const SpatialGDK::QueryConstraint& AdditionalConstraints, TArray<SpatialGDK::Query>& OutQueries) const;
@@ -40,5 +40,9 @@ public:
 	UPROPERTY(BlueprintReadonly, EditDefaultsOnly, Category = "Interest")
 	TArray<FQueryData> Queries;
 
+	UFUNCTION(BlueprintCallable, Category="Activation")
+    void on_activated(bool reset);
+	UFUNCTION(BlueprintCallable, Category="Activation")
+    void on_deactivated();
 	void refresh();
 };
