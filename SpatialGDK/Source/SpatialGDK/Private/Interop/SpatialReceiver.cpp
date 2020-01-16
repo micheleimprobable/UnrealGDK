@@ -32,12 +32,25 @@
 #include "Utils/ErrorCodeRemapping.h"
 #include "Utils/RepLayoutUtils.h"
 #include "Utils/SpatialMetrics.h"
+#include "../../Public/Schema/SpawnData.h"
+#include <ciso646>
+#include <algorithm>
 
 DEFINE_LOG_CATEGORY(LogSpatialReceiver);
 
 DECLARE_CYCLE_STAT(TEXT("PendingOpsOnChannel"), STAT_SpatialPendingOpsOnChannel, STATGROUP_SpatialNet);
 
 using namespace SpatialGDK;
+
+namespace {
+    bool includes (const TArray<Worker_EntityId>& haystack, Worker_EntityId needle) {
+        for (auto id : haystack) {
+            if (id == needle)
+                return true;
+        }
+        return false;
+    }
+} //unnamed namespace
 
 void USpatialReceiver::Init(USpatialNetDriver* InNetDriver, FTimerManager* InTimerManager)
 {
@@ -77,23 +90,8 @@ void USpatialReceiver::LeaveCriticalSection()
 	UE_LOG(LogSpatialReceiver, Verbose, TEXT("Leaving critical section."));
 	check(bInCriticalSection);
 
-	for (Worker_EntityId& PendingAddEntity : PendingAddEntities)
-	{
-		ReceiveActor(PendingAddEntity);
-	}
-
-	for (Worker_AuthorityChangeOp& PendingAuthorityChange : PendingAuthorityChanges)
-	{
-		HandleActorAuthority(PendingAuthorityChange);
-	}
-
 	// Mark that we've left the critical section.
 	bInCriticalSection = false;
-	PendingAddEntities.Empty();
-	PendingAddComponents.Empty();
-	PendingAuthorityChanges.Empty();
-
-	ProcessQueuedResolvedObjects();
 }
 
 void USpatialReceiver::OnAddEntity(const Worker_AddEntityOp& Op)
@@ -103,6 +101,54 @@ void USpatialReceiver::OnAddEntity(const Worker_AddEntityOp& Op)
 	check(bInCriticalSection);
 
 	PendingAddEntities.Emplace(Op.entity_id);
+}
+
+void USpatialReceiver::ProcessPendingEntities() {
+    typedef decltype(PendingAddEntities)::SizeType SizeType;
+
+    if (bInCriticalSection)
+        return;
+
+    const SizeType actor_count = std::min(3, PendingAddEntities.Num());
+    TArray<Worker_EntityId> deleted_ids;
+    for (SizeType z = 0; z < actor_count; ++z)
+    {
+        ReceiveActor(PendingAddEntities[z]);
+        deleted_ids.Add(PendingAddEntities[z]);
+    }
+    for (SizeType z = 0; z < actor_count; ++z) {
+        PendingAddEntities.RemoveAt(0);
+    }
+
+    {
+        TArray<SizeType> deleted_indices;
+        SizeType idx = 0;
+        for (Worker_AuthorityChangeOp &PendingAuthorityChange : PendingAuthorityChanges) {
+            if (includes(deleted_ids, PendingAuthorityChange.entity_id)) {
+                deleted_indices.Add(idx);
+                HandleActorAuthority(PendingAuthorityChange);
+            }
+            ++idx;
+        }
+        std::reverse(deleted_indices.begin(), deleted_indices.end());
+        for (SizeType z : deleted_indices) {
+            PendingAuthorityChanges.RemoveAt(z);
+        }
+    }
+
+    //       PendingAuthorityChanges.Num(),
+    //       PendingAddEntities.Num(),
+    //       PendingAddComponents.Num()
+    //);
+    //PendingAddEntities.Empty();
+    //PendingAuthorityChanges.Empty();
+    //PendingAddComponents.Empty();
+
+    if (not PendingAddEntities.Num()) {
+        PendingAuthorityChanges.Empty();
+        PendingAddComponents.Empty();
+        ProcessQueuedResolvedObjects();
+    }
 }
 
 void USpatialReceiver::OnAddComponent(const Worker_AddComponentOp& Op)
@@ -646,6 +692,7 @@ void USpatialReceiver::ReceiveActor(Worker_EntityId EntityId)
 				ApplyComponentDataOnActorCreation(EntityId, *PendingAddComponent.Data->ComponentData, Channel, ActorClassInfo);
 			}
 		}
+		PendingAddComponents.RemoveAll([EntityId](const PendingAddComponentWrapper& val) { return val.EntityId == EntityId; });
 
 		if (!NetDriver->IsServer())
 		{
