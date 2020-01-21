@@ -10,6 +10,7 @@
 #include "Settings/LevelEditorPlaySettings.h"
 #endif
 
+#include "Interop/SpatialReceiverEntityQueue.h"
 #include "EngineClasses/SpatialNetDriver.h"
 #include "EngineClasses/SpatialPendingNetGame.h"
 #include "Interop/Connection/SpatialWorkerConnection.h"
@@ -122,6 +123,11 @@ void USpatialGameInstance::StartGameInstance()
 		}
 	}
 
+	typedef decltype(SpawningChecks)::delegate_type delegate_type;
+	delegate_type d;
+	d.BindLambda([](const AActor* actor, const SpatialReceiverEntityQueue* queue, USpatialPackageMapClient* client) {return NewActorQueuePriority{NewActorQueuePriority::Low, queue->low_prio_queue().end()};});
+	SpawningChecks.push_back(std::move(d));
+
 	Super::StartGameInstance();
 }
 
@@ -162,4 +168,8 @@ void USpatialGameInstance::HandleOnConnectionFailed(const FString& Reason)
 {
 	UE_LOG(LogSpatialGameInstance, Error, TEXT("Could not connect to SpatialOS. Reason: %s"), *Reason);
 	OnConnectionFailed.Broadcast(Reason);
+}
+
+USpatialGameInstance::NewActorQueuePriority USpatialGameInstance::EnqueueActor (const AActor* actor, const SpatialReceiverEntityQueue* out, USpatialPackageMapClient* package_map) {
+    return this->SpawningChecks.evaluate(actor, out, package_map);
 }

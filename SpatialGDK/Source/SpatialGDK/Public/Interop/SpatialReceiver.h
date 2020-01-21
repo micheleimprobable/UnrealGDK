@@ -15,6 +15,7 @@
 #include "Schema/UnrealObjectRef.h"
 #include "SpatialCommonTypes.h"
 #include "Utils/RPCContainer.h"
+#include "SpatialReceiverEntityQueue.h"
 
 #include <WorkerSDK/improbable/c_schema.h>
 #include <WorkerSDK/improbable/c_worker.h>
@@ -241,7 +242,7 @@ private:
 	FRPCContainer IncomingRPCs;
 
 	bool bInCriticalSection;
-	TArray<Worker_EntityId> PendingAddEntities;
+	SpatialReceiverEntityQueue PendingAddEntities;
 	TArray<Worker_AuthorityChangeOp> PendingAuthorityChanges;
 	TArray<PendingAddComponentWrapper> PendingAddComponents;
 	TArray<Worker_RemoveComponentOp> QueuedRemoveComponentOps;

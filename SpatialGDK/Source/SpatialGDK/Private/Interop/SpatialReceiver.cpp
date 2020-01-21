@@ -33,6 +33,7 @@
 #include "Utils/RepLayoutUtils.h"
 #include "Utils/SpatialMetrics.h"
 #include "../../Public/Schema/SpawnData.h"
+#include "../../Public/WorkerSDK/improbable/c_worker.h"
 #include <ciso646>
 #include <algorithm>
 
@@ -100,25 +101,49 @@ void USpatialReceiver::OnAddEntity(const Worker_AddEntityOp& Op)
 
 	check(bInCriticalSection);
 
-	PendingAddEntities.Emplace(Op.entity_id);
+    USpatialGameInstance* const game = Cast<USpatialGameInstance>(NetDriver->GetWorld()->GetGameInstance());
+    AActor* const actor = (game ? Cast<AActor>(PackageMap->GetObjectFromEntityId(Op.entity_id)) : nullptr);
+    if (game and actor) {
+	    auto queue_info = game->EnqueueActor(actor, &PendingAddEntities, PackageMap);
+	    switch (queue_info.priority) {
+        case USpatialGameInstance::NewActorQueuePriority::Low:
+            PendingAddEntities.low_prio_queue().insert(queue_info.before_it, Op.entity_id);
+            break;
+        case USpatialGameInstance::NewActorQueuePriority::High:
+            PendingAddEntities.high_prio_queue().insert(queue_info.before_it, Op.entity_id);
+            break;
+        case USpatialGameInstance::NewActorQueuePriority::DontKnow:
+            PendingAddEntities.high_prio_queue().push_back(Op.entity_id);
+            break;
+        }
+    }
+	else {
+        PendingAddEntities.low_prio_queue().push_back(Op.entity_id);
+    }
 }
 
 void USpatialReceiver::ProcessPendingEntities() {
-    typedef decltype(PendingAddEntities)::SizeType SizeType;
+    typedef SpatialReceiverEntityQueue::SizeType SizeType;
 
     if (bInCriticalSection)
         return;
 
-    const SizeType actor_count = std::min(3, PendingAddEntities.Num());
+    auto low_prio = PendingAddEntities.low_prio_queue();
+    const auto actor_count = std::min<SizeType>(3, low_prio.size());
     TArray<Worker_EntityId> deleted_ids;
     for (SizeType z = 0; z < actor_count; ++z)
     {
-        ReceiveActor(PendingAddEntities[z]);
-        deleted_ids.Add(PendingAddEntities[z]);
+        ReceiveActor(low_prio[z]);
+        deleted_ids.Add(low_prio[z]);
     }
-    for (SizeType z = 0; z < actor_count; ++z) {
-        PendingAddEntities.RemoveAt(0);
+    low_prio.erase(low_prio.begin(), low_prio.begin() + actor_count);
+
+    auto high_prio = PendingAddEntities.high_prio_queue();
+    for (auto id : high_prio) {
+        ReceiveActor(id);
+        deleted_ids.Add(id);
     }
+    high_prio.clear();
 
     {
         TArray<SizeType> deleted_indices;
@@ -136,15 +161,7 @@ void USpatialReceiver::ProcessPendingEntities() {
         }
     }
 
-    //       PendingAuthorityChanges.Num(),
-    //       PendingAddEntities.Num(),
-    //       PendingAddComponents.Num()
-    //);
-    //PendingAddEntities.Empty();
-    //PendingAuthorityChanges.Empty();
-    //PendingAddComponents.Empty();
-
-    if (not PendingAddEntities.Num()) {
+    if (low_prio.empty()) {
         PendingAuthorityChanges.Empty();
         PendingAddComponents.Empty();
         ProcessQueuedResolvedObjects();

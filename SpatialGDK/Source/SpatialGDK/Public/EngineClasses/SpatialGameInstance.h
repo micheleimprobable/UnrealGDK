@@ -4,10 +4,15 @@
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+#include "Interop/StdArray.h"
+#include "Utils/DelegateChain.h"
+#include <WorkerSDK/improbable/c_worker.h>
 
 #include "SpatialGameInstance.generated.h"
 
 class USpatialWorkerConnection;
+class SpatialReceiverEntityQueue;
+class USpatialPackageMapClient;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogSpatialGameInstance, Log, All);
 
@@ -20,6 +25,17 @@ class SPATIALGDK_API USpatialGameInstance : public UGameInstance
 	GENERATED_BODY()
 
 public:
+	struct NewActorQueuePriority {
+        enum SpawnPriority { High, Low, DontKnow };
+
+        NewActorQueuePriority() : priority(DontKnow), before_it() {}
+        NewActorQueuePriority (SpawnPriority prio, StdArray<Worker_EntityId>::const_iterator it) : priority(prio), before_it(it) {}
+        operator bool() const { return DontKnow != priority; }
+
+        SpawnPriority priority;
+        StdArray<Worker_EntityId>::const_iterator before_it;
+    };
+
 #if WITH_EDITOR
 	virtual FGameInstancePIEResult StartPlayInEditorGameInstance(ULocalPlayer* LocalPlayer, const FGameInstancePIEParameters& Params) override;
 #endif
@@ -48,12 +64,15 @@ public:
 	// Invoked when this worker fails to initiate a connection to SpatialOS
 	FOnConnectionFailedEvent OnConnectionFailed;
 
+	NewActorQueuePriority EnqueueActor (const AActor* actor, const SpatialReceiverEntityQueue* out, USpatialPackageMapClient* package_map);
+
 protected:
 	// Checks whether the current net driver is a USpatialNetDriver.
 	// Can be used to decide whether to use Unreal networking or SpatialOS networking.
 	bool HasSpatialNetDriver() const;
 
 private:
+    DelegateChain<NewActorQueuePriority, const AActor*, const SpatialReceiverEntityQueue*, USpatialPackageMapClient*> SpawningChecks;
 
 	// SpatialConnection is stored here for persistence between map travels.
 	UPROPERTY()
