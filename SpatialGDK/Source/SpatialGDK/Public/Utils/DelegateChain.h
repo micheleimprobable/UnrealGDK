@@ -1,8 +1,9 @@
 #pragma once
 
 #include "Interfaces/OnlineExternalUIInterface.h"
-#include <Containers/Map.h>
+#include <list>
 #include <utility>
+#include <algorithm>
 
 namespace detail {
     template <typename R, typename... Args> class UnrealFunctor;
@@ -57,25 +58,27 @@ class DelegateChain {
 public:
     typedef Ret return_type;
     typedef typename detail::UnrealFunctor<return_type, Args...>::type delegate_type;
-    typedef decltype(std::declval<TMap<int, delegate_type>>().Num()) size_type;
+    typedef std::list<int>::size_type size_type;
 
     DelegateChain() = default;
     ~DelegateChain() noexcept = default;
 
     template <typename... Args2> return_type evaluate (Args2&&... args) const;
     size_type size() const { return m_delegates.Num(); }
+    size_type push_front (delegate_type&& delegate);
     size_type push_back (delegate_type&& delegate);
     bool erase (size_type index);
 
 private:
-    TMap<size_type, delegate_type> m_delegates;
+    typedef TPair<size_type, delegate_type> PairType;
+    std::list<PairType> m_delegates;
     size_type m_next_index{};
 };
 
 template <typename Ret, typename... Args>
 template <typename... Args2>
 inline auto DelegateChain<Ret, Args...>::evaluate (Args2&&... args) const -> return_type {
-    for (const TPair<size_type, delegate_type>& p : m_delegates) {
+    for (const PairType& p : m_delegates) {
         const auto& delegate = p.Value;
         const Ret ret = delegate.Execute(std::forward<Args2>(args)...);
         if (ret) {
@@ -89,7 +92,19 @@ template <typename Ret, typename... Args>
 inline auto DelegateChain<Ret, Args...>::push_back (delegate_type&& delegate) -> size_type {
     if (delegate.IsBound()) {
         const size_type index = m_next_index++;
-        m_delegates.Add(index, std::move(delegate));
+        m_delegates.emplace_back(index, std::move(delegate));
+        return index;
+    }
+    else {
+        return static_cast<size_type>(-1);
+    }
+}
+
+template <typename Ret, typename... Args>
+inline auto DelegateChain<Ret, Args...>::push_front (delegate_type&& delegate) -> size_type {
+    if (delegate.IsBound()) {
+        const size_type index = m_next_index++;
+        m_delegates.emplace_front(index, std::move(delegate));
         return index;
     }
     else {
@@ -99,9 +114,10 @@ inline auto DelegateChain<Ret, Args...>::push_back (delegate_type&& delegate) ->
 
 template <typename Ret, typename... Args>
 inline bool DelegateChain<Ret, Args...>::erase (size_type index) {
-    delegate_type* const item = m_delegates.Find(index);
-    if (item) {
-        m_delegates.Remove(index);
+    //delegate_type* const item = m_delegates.Find(index);
+    auto it_found = std::find_if(m_delegates.begin(), m_delegates.end(), [index](const PairType& item){return item.Key == index;});
+    if (it_found) {
+        m_delegates.erase(it_found);
         return true;
     }
     return false;
