@@ -19,7 +19,6 @@ UActorInterestComponent::UActorInterestComponent() {
         f.BindUFunction(this, "on_deactivated");
         this->OnComponentDeactivated.Add(f);
     }
-    //this->OnComponentDeactivated = [this](){this->on_deactivated();};
 }
 
 void UActorInterestComponent::CreateQueries(const USpatialClassInfoManager& ClassInfoManager, const SpatialGDK::QueryConstraint& AdditionalConstraints, TArray<SpatialGDK::Query>& OutQueries) const
@@ -53,7 +52,6 @@ void UActorInterestComponent::CreateQueries(const USpatialClassInfoManager& Clas
 			OutQueries.Push(NewQuery);
 		}
 	}
-
 }
 
 void UActorInterestComponent::refresh() {
@@ -71,12 +69,16 @@ void UActorInterestComponent::on_deactivated() {
     bool needs_refresh = false;
     for (auto& query : this->Queries) {
         //switch (query.Constraint->
-        auto* const sphere = Cast<USphereConstraint>(query.Constraint);
-        if (sphere) {
-            FVector v(0.0f, 0.0f, -10000.0f);
+        if (auto* const sphere = Cast<USphereConstraint>(query.Constraint)) {
+            FVector v(0.0f, 0.0f, -100000.0f);
             needs_refresh |= (v != sphere->Center);
             sphere->Center = v;
         }
+		else if (auto* const box = Cast<UBoxConstraint>(query.Constraint)) {
+			FVector v(0.0f, 0.0f, -100000.0f);
+			needs_refresh |= (v != box->Center);
+			box->Center = v;
+		}
     }
     if (needs_refresh)
         this->refresh();
