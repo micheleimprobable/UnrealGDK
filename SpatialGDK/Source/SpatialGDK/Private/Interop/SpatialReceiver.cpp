@@ -104,7 +104,7 @@ void USpatialReceiver::OnAddEntity(const Worker_AddEntityOp& Op)
     USpatialGameInstance* const game = Cast<USpatialGameInstance>(NetDriver->GetWorld()->GetGameInstance());
     AActor* const actor = (game ? Cast<AActor>(PackageMap->GetObjectFromEntityId(Op.entity_id)) : nullptr);
     if (game and actor) {
-	    auto queue_info = game->EnqueueActor(actor, &PendingAddEntities, PackageMap);
+	    auto queue_info = game->ActorSpawning().evaluate(actor, &PendingAddEntities, PackageMap);
 	    switch (queue_info.priority) {
         case USpatialGameInstance::NewActorQueuePriority::Low:
             PendingAddEntities.low_prio_queue().insert(queue_info.before_it, Op.entity_id);

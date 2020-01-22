@@ -123,9 +123,9 @@ void USpatialGameInstance::StartGameInstance()
 		}
 	}
 
-	typedef decltype(SpawningChecks)::delegate_type delegate_type;
+	typedef ActorSpawnDelegateChain::delegate_type delegate_type;
 	delegate_type d;
-	d.BindLambda([](const AActor* actor, const SpatialReceiverEntityQueue* queue, USpatialPackageMapClient* client) {return NewActorQueuePriority{NewActorQueuePriority::Low, queue->low_prio_queue().end()};});
+	d.BindLambda([](const AActor* actor, const SpatialReceiverEntityQueue* queue, USpatialPackageMapClient* client) {return NewActorQueuePriority{NewActorQueuePriority::High, queue->high_prio_queue().end()};});
 	SpawningChecks.push_back(std::move(d));
 
 	Super::StartGameInstance();
@@ -170,6 +170,6 @@ void USpatialGameInstance::HandleOnConnectionFailed(const FString& Reason)
 	OnConnectionFailed.Broadcast(Reason);
 }
 
-USpatialGameInstance::NewActorQueuePriority USpatialGameInstance::EnqueueActor (const AActor* actor, const SpatialReceiverEntityQueue* out, USpatialPackageMapClient* package_map) {
-    return this->SpawningChecks.evaluate(actor, out, package_map);
+auto USpatialGameInstance::ActorSpawning() -> ActorSpawnDelegateChain& {
+    return this->SpawningChecks;
 }

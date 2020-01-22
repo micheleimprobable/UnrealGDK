@@ -35,6 +35,7 @@ public:
         SpawnPriority priority;
         StdArray<Worker_EntityId>::const_iterator before_it;
     };
+	typedef DelegateChain<NewActorQueuePriority, const AActor*, const SpatialReceiverEntityQueue*, USpatialPackageMapClient*> ActorSpawnDelegateChain;
 
 #if WITH_EDITOR
 	virtual FGameInstancePIEResult StartPlayInEditorGameInstance(ULocalPlayer* LocalPlayer, const FGameInstancePIEParameters& Params) override;
@@ -64,7 +65,7 @@ public:
 	// Invoked when this worker fails to initiate a connection to SpatialOS
 	FOnConnectionFailedEvent OnConnectionFailed;
 
-	NewActorQueuePriority EnqueueActor (const AActor* actor, const SpatialReceiverEntityQueue* out, USpatialPackageMapClient* package_map);
+	ActorSpawnDelegateChain& ActorSpawning();
 
 protected:
 	// Checks whether the current net driver is a USpatialNetDriver.
@@ -72,7 +73,7 @@ protected:
 	bool HasSpatialNetDriver() const;
 
 private:
-    DelegateChain<NewActorQueuePriority, const AActor*, const SpatialReceiverEntityQueue*, USpatialPackageMapClient*> SpawningChecks;
+    ActorSpawnDelegateChain SpawningChecks;
 
 	// SpatialConnection is stored here for persistence between map travels.
 	UPROPERTY()

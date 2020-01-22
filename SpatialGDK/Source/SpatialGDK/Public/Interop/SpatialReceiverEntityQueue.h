@@ -8,7 +8,7 @@
 
 class USpatialPackageMapClient;
 
-class SpatialReceiverEntityQueue {
+class SPATIALGDK_API SpatialReceiverEntityQueue {
 public:
     typedef StdArray<Worker_EntityId> ActorQueue;
     typedef StdArray<Worker_EntityId, true> ConstActorQueue;

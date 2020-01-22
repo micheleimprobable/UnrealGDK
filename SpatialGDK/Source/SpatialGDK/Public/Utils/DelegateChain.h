@@ -64,16 +64,26 @@ public:
     ~DelegateChain() noexcept = default;
 
     template <typename... Args2> return_type evaluate (Args2&&... args) const;
-    size_type size() const { return m_delegates.Num(); }
+    size_type size() const { return m_delegates.size(); }
     size_type push_front (delegate_type&& delegate);
     size_type push_back (delegate_type&& delegate);
     bool erase (size_type index);
 
 private:
+    size_type advance_index();
+
     typedef TPair<size_type, delegate_type> PairType;
     std::list<PairType> m_delegates;
-    size_type m_next_index{};
+    size_type m_next_index{1};
 };
+
+template <typename Ret, typename... Args>
+inline auto DelegateChain<Ret, Args...>::advance_index() -> size_type {
+    const size_type retval = m_next_index++;
+    if (m_next_index<retval)
+        m_next_index = 1;
+    return retval;
+}
 
 template <typename Ret, typename... Args>
 template <typename... Args2>
@@ -91,24 +101,24 @@ inline auto DelegateChain<Ret, Args...>::evaluate (Args2&&... args) const -> ret
 template <typename Ret, typename... Args>
 inline auto DelegateChain<Ret, Args...>::push_back (delegate_type&& delegate) -> size_type {
     if (delegate.IsBound()) {
-        const size_type index = m_next_index++;
+        const size_type index = advance_index();
         m_delegates.emplace_back(index, std::move(delegate));
         return index;
     }
     else {
-        return static_cast<size_type>(-1);
+        return static_cast<size_type>(0);
     }
 }
 
 template <typename Ret, typename... Args>
 inline auto DelegateChain<Ret, Args...>::push_front (delegate_type&& delegate) -> size_type {
     if (delegate.IsBound()) {
-        const size_type index = m_next_index++;
+        const size_type index = advance_index();
         m_delegates.emplace_front(index, std::move(delegate));
         return index;
     }
     else {
-        return static_cast<size_type>(-1);
+        return static_cast<size_type>(0);
     }
 }
 
@@ -116,7 +126,7 @@ template <typename Ret, typename... Args>
 inline bool DelegateChain<Ret, Args...>::erase (size_type index) {
     //delegate_type* const item = m_delegates.Find(index);
     auto it_found = std::find_if(m_delegates.begin(), m_delegates.end(), [index](const PairType& item){return item.Key == index;});
-    if (it_found) {
+    if (it_found != m_delegates.end()) {
         m_delegates.erase(it_found);
         return true;
     }
