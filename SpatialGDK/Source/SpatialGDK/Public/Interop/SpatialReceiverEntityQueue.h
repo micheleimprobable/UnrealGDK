@@ -6,7 +6,7 @@
 #include <utility>
 #include <algorithm>
 
-class USpatialPackageMapClient;
+class USpatialStaticComponentView;
 
 class SPATIALGDK_API SpatialReceiverEntityQueue {
 public:
@@ -22,7 +22,7 @@ public:
     ActorQueue low_prio_queue() { return ActorQueue(&m_low_prio); }
     ActorQueue high_prio_queue() { return ActorQueue(&m_high_prio); }
 
-    static AActor* to_actor (Worker_EntityId id, USpatialPackageMapClient* PackageMap);
+    static FVector position (Worker_EntityId id, USpatialStaticComponentView* comp_view);
 
 private:
     TArray<Worker_EntityId> m_high_prio;

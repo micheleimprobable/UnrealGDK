@@ -125,7 +125,7 @@ void USpatialGameInstance::StartGameInstance()
 
 	typedef ActorSpawnDelegateChain::delegate_type delegate_type;
 	delegate_type d;
-	d.BindLambda([](const AActor* actor, const SpatialReceiverEntityQueue* queue, USpatialPackageMapClient* client) {return NewActorQueuePriority{NewActorQueuePriority::High, queue->high_prio_queue().end()};});
+	d.BindLambda([](const FVector&, const SpatialReceiverEntityQueue* queue, USpatialStaticComponentView*) {return NewActorQueuePriority{NewActorQueuePriority::High, queue->high_prio_queue().end()};});
 	SpawningChecks.push_back(std::move(d));
 
 	Super::StartGameInstance();

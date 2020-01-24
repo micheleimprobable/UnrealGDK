@@ -12,7 +12,7 @@
 
 class USpatialWorkerConnection;
 class SpatialReceiverEntityQueue;
-class USpatialPackageMapClient;
+class USpatialStaticComponentView;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogSpatialGameInstance, Log, All);
 
@@ -35,7 +35,7 @@ public:
         SpawnPriority priority;
         StdArray<Worker_EntityId>::const_iterator before_it;
     };
-	typedef DelegateChain<NewActorQueuePriority, const AActor*, const SpatialReceiverEntityQueue*, USpatialPackageMapClient*> ActorSpawnDelegateChain;
+	typedef DelegateChain<NewActorQueuePriority, const FVector&, const SpatialReceiverEntityQueue*, USpatialStaticComponentView*> ActorSpawnDelegateChain;
 
 #if WITH_EDITOR
 	virtual FGameInstancePIEResult StartPlayInEditorGameInstance(ULocalPlayer* LocalPlayer, const FGameInstancePIEParameters& Params) override;

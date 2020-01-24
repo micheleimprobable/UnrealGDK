@@ -100,26 +100,7 @@ void USpatialReceiver::OnAddEntity(const Worker_AddEntityOp& Op)
 	UE_LOG(LogSpatialReceiver, Verbose, TEXT("AddEntity: %lld"), Op.entity_id);
 
 	check(bInCriticalSection);
-
-    USpatialGameInstance* const game = Cast<USpatialGameInstance>(NetDriver->GetWorld()->GetGameInstance());
-    AActor* const actor = (game ? Cast<AActor>(PackageMap->GetObjectFromEntityId(Op.entity_id)) : nullptr);
-    if (game and actor) {
-	    auto queue_info = game->ActorSpawning().evaluate(actor, &PendingAddEntities, PackageMap);
-	    switch (queue_info.priority) {
-        case USpatialGameInstance::NewActorQueuePriority::Low:
-            PendingAddEntities.low_prio_queue().insert(queue_info.before_it, Op.entity_id);
-            break;
-        case USpatialGameInstance::NewActorQueuePriority::High:
-            PendingAddEntities.high_prio_queue().insert(queue_info.before_it, Op.entity_id);
-            break;
-        case USpatialGameInstance::NewActorQueuePriority::DontKnow:
-            PendingAddEntities.high_prio_queue().push_back(Op.entity_id);
-            break;
-        }
-    }
-	else {
-        PendingAddEntities.low_prio_queue().push_back(Op.entity_id);
-    }
+	LatestAddEntities.Add(Op.entity_id);
 }
 
 void USpatialReceiver::ProcessPendingEntities() {
@@ -127,23 +108,28 @@ void USpatialReceiver::ProcessPendingEntities() {
 
     if (bInCriticalSection)
         return;
+    EnqueueLatestAddEntities();
+
+    TArray<Worker_EntityId> deleted_ids;
+
+    {
+        auto high_prio = PendingAddEntities.high_prio_queue();
+        for (auto id : high_prio) {
+            ReceiveActor(id);
+            deleted_ids.Add(id);
+        }
+        high_prio.clear();
+    }
 
     auto low_prio = PendingAddEntities.low_prio_queue();
-    const auto actor_count = std::min<SizeType>(3, low_prio.size());
-    TArray<Worker_EntityId> deleted_ids;
-    for (SizeType z = 0; z < actor_count; ++z)
     {
-        ReceiveActor(low_prio[z]);
-        deleted_ids.Add(low_prio[z]);
+        const auto actor_count = std::min<SizeType>(3, low_prio.size());
+        for (SizeType z = 0; z < actor_count; ++z) {
+            ReceiveActor(low_prio[z]);
+            deleted_ids.Add(low_prio[z]);
+        }
+        low_prio.erase(low_prio.begin(), low_prio.begin() + actor_count);
     }
-    low_prio.erase(low_prio.begin(), low_prio.begin() + actor_count);
-
-    auto high_prio = PendingAddEntities.high_prio_queue();
-    for (auto id : high_prio) {
-        ReceiveActor(id);
-        deleted_ids.Add(id);
-    }
-    high_prio.clear();
 
     {
         TArray<SizeType> deleted_indices;
@@ -166,6 +152,32 @@ void USpatialReceiver::ProcessPendingEntities() {
         PendingAddComponents.Empty();
         ProcessQueuedResolvedObjects();
     }
+}
+
+void USpatialReceiver::EnqueueLatestAddEntities() {
+    for (Worker_EntityId entity_id : LatestAddEntities) {
+        USpatialGameInstance* const game = Cast<USpatialGameInstance>(NetDriver->GetWorld()->GetGameInstance());
+        const SpawnData* const actor_data = StaticComponentView->GetComponentData<SpawnData>(entity_id);
+
+        if (actor_data) {
+            auto queue_info = game->ActorSpawning().evaluate(actor_data->Location, &PendingAddEntities, StaticComponentView);
+            switch (queue_info.priority) {
+            case USpatialGameInstance::NewActorQueuePriority::Low:
+                PendingAddEntities.low_prio_queue().insert(queue_info.before_it, entity_id);
+                break;
+            case USpatialGameInstance::NewActorQueuePriority::High:
+                PendingAddEntities.high_prio_queue().insert(queue_info.before_it, entity_id);
+                break;
+            case USpatialGameInstance::NewActorQueuePriority::DontKnow:
+                PendingAddEntities.high_prio_queue().push_back(entity_id);
+                break;
+            }
+        }
+        else {
+            PendingAddEntities.high_prio_queue().push_back(entity_id);
+        }
+    }
+    LatestAddEntities.Empty();
 }
 
 void USpatialReceiver::OnAddComponent(const Worker_AddComponentOp& Op)

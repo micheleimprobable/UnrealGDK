@@ -129,6 +129,7 @@ public:
 	void OnComponentUpdate(const Worker_ComponentUpdateOp& Op);
 	void HandleRPC(const Worker_ComponentUpdateOp& Op);
 	void ProcessPendingEntities();
+	void EnqueueLatestAddEntities();
 
 	void ProcessRPCEventField(Worker_EntityId EntityId, const Worker_ComponentUpdateOp &Op, const Worker_ComponentId RPCEndpointComponentId, bool bPacked);
 
@@ -243,6 +244,7 @@ private:
 
 	bool bInCriticalSection;
 	SpatialReceiverEntityQueue PendingAddEntities;
+	TArray<Worker_EntityId> LatestAddEntities;
 	TArray<Worker_AuthorityChangeOp> PendingAuthorityChanges;
 	TArray<PendingAddComponentWrapper> PendingAddComponents;
 	TArray<Worker_RemoveComponentOp> QueuedRemoveComponentOps;
